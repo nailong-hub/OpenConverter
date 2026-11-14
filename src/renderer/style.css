@@ -661,12 +661,18 @@ code { font-family: 'SF Mono', Menlo, monospace; background: var(--bg-elevated-2
   color: var(--text); font-size: var(--t-body); font-weight: 500;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.link-pages { display: flex; flex-wrap: wrap; gap: 6px 14px; max-height: 120px; overflow-y: auto; }
-.link-page {
-  display: inline-flex; gap: 6px; align-items: center;
-  color: var(--text-secondary); font-size: var(--t-note);
-  cursor: pointer; user-select: none; max-width: 100%;
+.link-pages {
+  display: flex; flex-direction: column;
+  max-height: 160px; overflow-y: auto;
 }
+.link-page {
+  display: flex; gap: 10px; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  color: var(--text-secondary); font-size: var(--t-body);
+  cursor: pointer; user-select: none;
+}
+.link-page:last-child { border-bottom: none; }
+.link-page:hover { background: var(--bg-hover); }
 .link-page span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .link-page input { accent-color: var(--accent); }
 .link-result-actions { display: flex; justify-content: flex-end; }
