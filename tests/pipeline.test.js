@@ -456,3 +456,33 @@ test('convertOne: outputBaseName renames output for link jobs with temp inputs',
   assert.ok(path.basename(r.outputPath).startsWith('【经典】周杰伦全MV 【200P】 - P1.mp3'),
     'output must use outputBaseName, got ' + path.basename(r.outputPath));
 });
+
+test('convertOne: truncated input warns when output is much shorter than declared', { skip: skipNoFfmpeg }, async () => {
+  // 2s FLAC whose STREAMINFO declares 2s; cut the file mid-stream so the
+  // decode stops early — the output must carry a truncation warning.
+  const full = path.join(OUT_DIR, 'trunc-src.flac');
+  execFileSync('ffmpeg', ['-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2',
+    '-ac', '1', '-ar', '22050', '-c:a', 'flac', full], { stdio: 'pipe' });
+  const bytes = fs.readFileSync(full);
+  const cut = path.join(OUT_DIR, 'trunc-cut.flac');
+  // Tail truncation (like the VM A2 case): ffmpeg completes the decode but
+  // the output is much shorter than the header-declared duration.
+  fs.writeFileSync(cut, bytes.subarray(0, bytes.length - 8000));
+
+  const r = await pipeline.convertOne({
+    inputPath: cut, outputDir: path.join(OUT_DIR, 'trunc-out'), format: 'mp3',
+  });
+  assert.ok(r.warning, 'truncated input must surface a warning');
+  assert.strictEqual(r.warning.code, 'truncated_output');
+  assert.ok(r.outputPath.includes('trunc-cut.mp3'));
+});
+
+test('convertOne: healthy input produces no truncation warning', { skip: skipNoFfmpeg }, async () => {
+  const src = path.join(OUT_DIR, 'healthy-src.flac');
+  execFileSync('ffmpeg', ['-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2',
+    '-ac', '1', '-ar', '22050', '-c:a', 'flac', src], { stdio: 'pipe' });
+  const r = await pipeline.convertOne({
+    inputPath: src, outputDir: path.join(OUT_DIR, 'healthy-out'), format: 'mp3',
+  });
+  assert.ok(!r.warning, 'healthy input must not warn');
+});

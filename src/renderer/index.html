@@ -196,6 +196,28 @@
               </div>
             </div>
 
+            <h3 class="list-group-title" data-i18n="ytdlp_panel_title">Link parsing (yt-dlp, optional)</h3>
+            <div class="list-group">
+              <div class="list-item stack">
+                <div class="row">
+                  <input type="text" id="ytdlp-path-input" class="text-input"
+                         placeholder="yt-dlp path (optional; used for YouTube links)"
+                         data-i18n="ytdlp_path_placeholder"
+                         autocomplete="off" spellcheck="false" />
+                  <button id="ytdlp-save-btn" class="btn btn-secondary" data-i18n="btn_save">Save</button>
+                </div>
+                <div class="row">
+                  <input type="text" id="ytdlp-cookies-input" class="text-input"
+                         placeholder="cookies.txt path (optional; for login-required videos)"
+                         data-i18n="ytdlp_cookies_placeholder"
+                         autocomplete="off" spellcheck="false" />
+                </div>
+                <p class="settings-hint" data-i18n="ytdlp_hint">
+                  Only used for YouTube links. Leave empty to use yt-dlp from PATH. The cookies file stays on this machine — never uploaded.
+                </p>
+              </div>
+            </div>
+
             <h3 class="list-group-title" data-i18n="ncm_lyrics_title">Fetch lyrics</h3>
             <div class="list-group">
               <div class="list-item stack">

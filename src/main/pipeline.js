@@ -115,7 +115,20 @@ async function convertOne(job) {
       catch { /* Audio is committed; a lyric sidecar failure leaves it usable. */ }
     }
     job.onProgress?.({ stage: 'done', percent: 100 });
-    return { ...result, outputPath };
+    // Silent-truncation guard: when the transcode produced noticeably less
+    // audio than the input declares, surface it instead of failing quietly
+    // (truncated/corrupt sources decode "successfully" but short).
+    let warning = null;
+    try {
+      if (path.resolve(outputPath) !== path.resolve(job.inputPath)) {
+        const inSec = await ffmpeg.probeDuration(job.inputPath, { ffprobeBin: job.ffprobeBin });
+        const outSec = await ffmpeg.probeDuration(outputPath, { ffprobeBin: job.ffprobeBin });
+        if (inSec > 0 && outSec > 0 && outSec < inSec * 0.9) {
+          warning = { code: 'truncated_output', inSec: Math.round(inSec), outSec: Math.round(outSec) };
+        }
+      }
+    } catch { /* duration probe is best-effort */ }
+    return { ...result, outputPath, warning };
   } finally {
     fs.rmSync(stagingDir, { recursive: true, force: true });
   }

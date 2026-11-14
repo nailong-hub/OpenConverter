@@ -120,6 +120,12 @@ const TRANSLATIONS = {
     toast_skipped_unsupported: '{count} unsupported file(s) skipped',
     toast_init_failed: 'Init failed: {message}',
     toast_settings_saved: 'Settings saved',
+    toast_truncated_warn: '{n} file(s) converted with a warning: output shorter than input',
+    warn_truncated: 'Output {out}s is shorter than input {inSec}s — the input file may be incomplete',
+    ytdlp_panel_title: 'Link parsing (yt-dlp, optional)',
+    ytdlp_path_placeholder: 'yt-dlp path (optional; used for YouTube links)',
+    ytdlp_cookies_placeholder: 'cookies.txt path (optional; for login-required videos)',
+    ytdlp_hint: 'Only used for YouTube links. Leave empty to use yt-dlp from PATH. The cookies file stays on this machine — never uploaded.',
     status_ready: 'Ready',
     status_queued: 'Waiting',
     status_download: 'Downloading',
@@ -241,6 +247,12 @@ const TRANSLATIONS = {
     toast_skipped_unsupported: '已跳过 {count} 个不支持的文件',
     toast_init_failed: '初始化失败: {message}',
     toast_settings_saved: '设置已保存',
+    toast_truncated_warn: '{n} 个文件转换时出现警告：输出短于输入',
+    warn_truncated: '输出 {out}s 短于输入 {inSec}s——输入文件可能不完整',
+    ytdlp_panel_title: '链接解析（yt-dlp，可选）',
+    ytdlp_path_placeholder: 'yt-dlp 路径（可选；用于 YouTube 链接）',
+    ytdlp_cookies_placeholder: 'cookies.txt 路径（可选；登录所需视频用）',
+    ytdlp_hint: '仅供 YouTube 链接解析使用。留空则使用 PATH 中的 yt-dlp。cookie 文件只存本机，不上传。',
     status_ready: '就绪',
     status_queued: '等待中',
     status_download: '下载中',
@@ -440,6 +452,8 @@ async function init() {
   state.autoClearDone = !!cfg.autoClearDone;
   if (cfg.qmcEkey) $('ekey-input').value = cfg.qmcEkey;
   if (cfg.qqCookie) $('qq-cookie-input').value = cfg.qqCookie;
+  if (cfg.ytdlpPath) $('ytdlp-path-input').value = cfg.ytdlpPath;
+  if (cfg.ytdlpCookiesPath) $('ytdlp-cookies-input').value = cfg.ytdlpCookiesPath;
   $('kgg-autoscan-checkbox').checked = !!cfg.kggAutoScan;
   $('ncm-lyrics-enabled').checked = cfg.ncmLyricsEnabled !== false;
   const reduceBoxInit = $('reduce-motion-checkbox');
@@ -511,6 +525,21 @@ function bindEvents() {
   $('auto-clear-checkbox').addEventListener('change', (e) => {
     state.autoClearDone = e.target.checked;
     api.invoke('config:set', { patch: { autoClearDone: state.autoClearDone } });
+  });
+
+  // ekey (QQ Music)
+  $('ytdlp-save-btn').addEventListener('click', async () => {
+    const btn = $('ytdlp-save-btn');
+    try {
+      await api.invoke('config:set', { patch: {
+        ytdlpPath: $('ytdlp-path-input').value.trim(),
+        ytdlpCookiesPath: $('ytdlp-cookies-input').value.trim(),
+      } });
+      toast(t('toast_settings_saved'), 'ok');
+      flashButton(btn, 'ok');
+    } catch {
+      flashButton(btn, 'bad');
+    }
   });
 
   // ekey (QQ Music)
@@ -917,7 +946,12 @@ function renderQueueItem(f, node) {
   node = node || $('queue-list').querySelector(`[data-id="${f.id}"]`);
   if (!node) return;
   node.className = `queue-item ${f.status}` + (node.classList.contains('entering') ? ' entering' : '');
-  node.querySelector('.sub').textContent = f.outputPath ? '→ ' + basename(f.outputPath) : (f.error || (f.status === 'pending' ? '—' : ''));
+  const subEl = node.querySelector('.sub');
+  subEl.textContent = f.outputPath ? '→ ' + basename(f.outputPath) : (f.error || (f.status === 'pending' ? '—' : ''));
+  if (f.warning) {
+    subEl.textContent += ' ⚠';
+    subEl.title = t('warn_truncated', { out: f.warning.outSec, inSec: f.warning.inSec });
+  }
   const fill = node.querySelector('.progress-fill');
   const indeterminate = f.status === 'decrypt' || f.status === 'queued';
   node.querySelector('.progress').classList.toggle('indeterminate', indeterminate);
@@ -1020,14 +1054,19 @@ async function convert() {
       quality: state.quality,
       outputDir: state.outputDir,
     });
-    let success = 0, fail = 0, cancelled = 0;
+    let success = 0, fail = 0, cancelled = 0, warned = 0;
     r.results.forEach((res, i) => {
       const f = targets[i];
       if (!f) return;
       if (res.cancelled) { f.status = 'cancelled'; f.error = null; cancelled++; }
       else if (res.error) { f.status = 'error'; f.error = res.error; fail++; }
-      else { f.status = 'done'; f.progress = 100; f.outputPath = res.outputPath; f.durationMs = res.durationMs; success++; }
+      else {
+        f.status = 'done'; f.progress = 100; f.outputPath = res.outputPath; f.durationMs = res.durationMs;
+        if (res.warning) { f.warning = res.warning; warned++; }
+        success++;
+      }
     });
+    if (warned > 0) toast(t('toast_truncated_warn', { n: warned }), 'warn', 6000);
     if (cancelled && !success && !fail) toast(t('toast_cancelled'), 'warn');
     else if (success > 0 && fail === 0) toast(t('toast_converted_success', { count: success }), 'ok');
     else if (success > 0) toast(t('toast_converted_mixed', { success, failed: fail }), 'warn');
